@@ -33,7 +33,7 @@ export class SpdbPuppeteerService implements OnModuleInit {
   private async initBrowser() {
     this.logger.debug('initBrowser')
     const browser = await puppeteer.launch({
-      headless: false,
+      // headless: false,
       defaultViewport: null,
       // executablePath: '/usr/bin/google-chrome',
       args: [
