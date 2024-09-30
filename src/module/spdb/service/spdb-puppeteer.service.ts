@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit } from '@nestjs/common'
-import puppeteer, { Browser, BrowserEvent, HTTPResponse, Page } from 'puppeteer'
+import puppeteer, { Browser, BrowserEvent, HTTPRequest, HTTPResponse, Page } from 'puppeteer'
 import { USER_AGENT } from '../../../constant/app.constant'
 import { Logger } from '../../../shared/logger/logger'
 import { SpdbService } from './spdb.service'
@@ -58,31 +58,32 @@ export class SpdbPuppeteerService implements OnModuleInit {
 
     await page.setRequestInterception(true)
 
-    page.on('request', (request) => {
-      const blockTypes = [
-        'image',
-        'font',
-        'stylesheet',
-      ]
-
-      if (blockTypes.includes(request.resourceType())) {
-        request.abort()
-      } else {
-        request.continue()
-      }
-    })
-
+    page.on('request', (request) => this.onRequest(request))
     page.on('response', (response) => this.onResponse(response))
 
     await page.setUserAgent(USER_AGENT)
     await page.goto(url, { timeout: 0 })
   }
 
+  private onRequest(request: HTTPRequest) {
+    const blockTypes = [
+      'image',
+      'font',
+      'stylesheet',
+    ]
+
+    if (blockTypes.includes(request.resourceType())) {
+      request.abort()
+    } else {
+      request.continue()
+    }
+  }
+
   private async onResponse(response: HTTPResponse) {
     const status = response.status()
     const method = response.request().method()
     const url = new URL(response.url())
-    if (url.hostname !== this.hostname || [302].includes(status) || ['.png'].some((v) => url.href.endsWith(v))) {
+    if (url.hostname !== this.hostname || [302].includes(status) || ['.png', '.jpg'].some((v) => url.href.endsWith(v))) {
       return
     }
 
@@ -92,7 +93,7 @@ export class SpdbPuppeteerService implements OnModuleInit {
       const body = await response.text()
       await this.handleBody(body)
     } catch (error) {
-      this.logger.error(`onResponse: ${error.message}`, null, { method, url: url.href })
+      this.logger.error(`onResponse: ${error.message} | ${JSON.stringify({ method, url: url.href })}`)
     }
 
     clearInterval(this.intervalId)
@@ -111,7 +112,7 @@ export class SpdbPuppeteerService implements OnModuleInit {
     }
 
     ids = [...new Set(ids)]
-    this.logger.debug('handleBody', { count: ids.length })
+    this.logger.debug(`handleBody | ${JSON.stringify({ count: ids.length })}`)
     await Promise.allSettled(ids.map((id) => this.spdbService.addById(id)))
   }
 }
