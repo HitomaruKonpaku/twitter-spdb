@@ -1,12 +1,18 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+
 import { Injectable, OnModuleInit } from '@nestjs/common'
-import puppeteer, { Browser, BrowserEvent, HTTPRequest, HTTPResponse, Page } from 'puppeteer'
+import { Browser, BrowserEvent, HTTPRequest, HTTPResponse, Page } from 'puppeteer'
 import { USER_AGENT } from '../../../constant/app.constant'
 import { Logger } from '../../../shared/logger'
 import { SpdbService } from './spdb.service'
 
+const puppeteer = require('puppeteer-extra')
+const StealthPlugin = require('puppeteer-extra-plugin-stealth')
+
 @Injectable()
 export class SpdbPuppeteerService implements OnModuleInit {
   private readonly logger = new Logger(SpdbPuppeteerService.name, { timestamp: true })
+  private readonly debug = false
 
   private readonly hostname = [...'moc.draobhsadsecaps'].reverse().join('')
   private readonly pageUrl = [...'tsetal=edom&=gnal?/moc.draobhsadsecaps//:sptth'].reverse().join('')
@@ -32,8 +38,11 @@ export class SpdbPuppeteerService implements OnModuleInit {
 
   private async initBrowser() {
     this.logger.debug('initBrowser')
+
+    puppeteer.use(StealthPlugin())
+
     const browser = await puppeteer.launch({
-      // headless: false,
+      headless: !this.debug,
       defaultViewport: null,
       // executablePath: '/usr/bin/google-chrome',
       args: [
@@ -43,6 +52,7 @@ export class SpdbPuppeteerService implements OnModuleInit {
         '--no-sandbox',
       ],
     })
+
     this.browser = browser
 
     browser.on(BrowserEvent.Disconnected, () => {
@@ -72,11 +82,14 @@ export class SpdbPuppeteerService implements OnModuleInit {
       'stylesheet',
     ]
 
-    if (blockTypes.includes(request.resourceType())) {
-      request.abort()
-    } else {
-      request.continue()
+    if (!this.debug) {
+      if (blockTypes.includes(request.resourceType())) {
+        request.abort()
+        return
+      }
     }
+
+    request.continue()
   }
 
   private async onResponse(response: HTTPResponse) {
@@ -112,7 +125,15 @@ export class SpdbPuppeteerService implements OnModuleInit {
     }
 
     ids = [...new Set(ids)]
-    this.logger.debug(`handleBody | ${JSON.stringify({ count: ids.length })}`)
-    await Promise.allSettled(ids.map((id) => this.spdbService.addById(id)))
+    this.logger.log(`handleBody | ${JSON.stringify({ count: ids.length })}`)
+    await Promise.allSettled(ids.map((id) => this.addToQueueById(id)))
+  }
+
+  private async addToQueueById(id: string) {
+    try {
+      await this.spdbService.addById(id)
+    } catch (error) {
+      this.logger.error(`addToQueueById: ${error.message} | ${JSON.stringify({ id })}`)
+    }
   }
 }
