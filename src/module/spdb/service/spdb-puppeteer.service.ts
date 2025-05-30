@@ -1,7 +1,7 @@
 import { Injectable, OnModuleInit } from '@nestjs/common'
 import puppeteer, { Browser, BrowserEvent, HTTPRequest, HTTPResponse, Page } from 'puppeteer'
 import { USER_AGENT } from '../../../constant/app.constant'
-import { Logger } from '../../../shared/logger/logger'
+import { Logger } from '../../../shared/logger'
 import { SpdbService } from './spdb.service'
 
 @Injectable()

@@ -1,5 +1,5 @@
 # BASE
-FROM node:18-alpine AS base
+FROM node:lts-alpine AS base
 
 RUN apk add --no-cache tini
 
@@ -10,28 +10,27 @@ COPY package*.json ./
 # DEPENDENCIES
 FROM base AS dependencies
 
-RUN npm install --omit=dev
+RUN npm ci --omit=dev
 
 # BUILDER
 FROM base AS builder
 
-RUN npm install
+RUN npm ci
 
 COPY . .
 
 RUN npm run build
 
-# APP
-FROM base as app
+# RELEASE
+FROM base AS release
 
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD true
-ENV PUPPETEER_EXECUTABLE_PATH /usr/bin/chromium-browser
+RUN apk add --no-cache bash
+
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 RUN apk update \
   && apk add --no-cache --virtual .build-deps udev ttf-opensans chromium ca-certificates
-
-# RELEASE
-FROM app
 
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY --from=builder      /app/dist ./dist
@@ -45,5 +44,7 @@ RUN addgroup -S pptruser \
 USER pptruser
 
 EXPOSE 8080
+
+ENV NODE_ENV=production
 
 CMD [ "/sbin/tini", "--", "node", "dist/main" ]

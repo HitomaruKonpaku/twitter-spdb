@@ -1,16 +1,21 @@
 import { NestFactory } from '@nestjs/core'
+import { NestExpressApplication } from '@nestjs/platform-express'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
+import 'dotenv/config'
 import { AppModule } from './app.module'
-import { Logger } from './shared/logger/logger'
+import { Logger } from './shared/logger'
 
 async function bootstrap() {
-  const logger = new Logger('Main', { timestamp: true })
+  const logger = new Logger('Main')
 
-  const app = await NestFactory.create(AppModule, {
-    logger: new Logger(null, { timestamp: true }),
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    logger: new Logger(),
   })
 
   app.enableCors()
+  app.enableShutdownHooks()
+
+  app.set('trust proxy', true)
 
   const config = new DocumentBuilder()
     .build()
